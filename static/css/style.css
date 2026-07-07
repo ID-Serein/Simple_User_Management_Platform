@@ -41,6 +41,10 @@ a {
     gap: 16px;
 }
 
+.nav-form {
+    margin: 0;
+}
+
 .nav-welcome {
     font-size: 14px;
     opacity: 0.9;
@@ -56,6 +60,13 @@ a {
 
 .nav-link:hover {
     background-color: rgba(255, 255, 255, 0.2);
+}
+
+.nav-button {
+    border: 0;
+    background: transparent;
+    font-family: inherit;
+    cursor: pointer;
 }
 
 /* ===== Container ===== */
