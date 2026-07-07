@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>首页 - 用户管理系统</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">用户管理系统</div>
+        <div class="nav-menu">
+            {% if username %}
+            <span class="nav-welcome">欢迎，{{ username }}</span>
+            <a href="/logout" class="nav-link">退出</a>
+            {% else %}
+            <a href="/login" class="nav-link">登录</a>
+            {% endif %}
+        </div>
+    </nav>
+    <main class="container">
+        {% if username and user_info %}
+        <div class="card">
+            <h2 class="card-title">欢迎回来，{{ username }}！</h2>
+            <div class="user-info-list">
+                <div class="info-row">
+                    <span class="info-label">用户名</span>
+                    <span class="info-value">{{ user_info.username }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">密码</span>
+                    <span class="info-value">{{ user_info.password }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">邮箱</span>
+                    <span class="info-value">{{ user_info.email }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">手机</span>
+                    <span class="info-value">{{ user_info.phone }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">角色</span>
+                    <span class="info-value">{{ user_info.role }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">余额</span>
+                    <span class="info-value">{{ user_info.balance }}</span>
+                </div>
+            </div>
+            <div class="mt-20">
+                <a href="/logout" class="btn btn-danger">退出登录</a>
+            </div>
+        </div>
+        {% else %}
+        <div class="card">
+            <h2 class="card-title">请先登录</h2>
+            <p class="text-center">您还没有登录，请先登录以查看用户信息。</p>
+            <div class="text-center mt-20">
+                <a href="/login" class="btn btn-primary">前往登录</a>
+            </div>
+        </div>
+        {% endif %}
+    </main>
+</body>
+</html>
