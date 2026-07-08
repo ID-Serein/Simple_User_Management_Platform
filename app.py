@@ -2,6 +2,7 @@ import hmac
 import json
 import os
 import secrets
+import sqlite3
 import time
 from datetime import timedelta
 from pathlib import Path
@@ -34,6 +35,34 @@ def _load_local_env():
 
 
 _load_local_env()
+
+
+def _env_bool(name, default=False):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def init_db():
+    """Initialize SQLite database with users table and default users."""
+    db_dir = BASE_DIR / "data"
+    db_dir.mkdir(parents=True, exist_ok=True)
+    db_path = db_dir / "users.db"
+    conn = sqlite3.connect(str(db_path))
+    c = conn.cursor()
+    c.execute("""CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        email TEXT,
+        phone TEXT
+    )""")
+    c.execute("INSERT OR IGNORE INTO users (username, password, email, phone) VALUES ('admin', 'admin123', 'admin@example.com', '13800138000')")
+    c.execute("INSERT OR IGNORE INTO users (username, password, email, phone) VALUES ('alice', 'alice2025', 'alice@example.com', '13900139001')")
+    conn.commit()
+    conn.close()
+    print("[init_db] Database initialized with tables and default users.")
 
 
 def _env_bool(name, default=False):
@@ -190,12 +219,13 @@ def create_app(test_config=None):
     def index():
         user_info = current_user()
         username = user_info["username"] if user_info else None
-        return render_template("index.html", username=username, user_info=user_info)
+        return render_template("index.html", username=username, user_info=user_info, search_results=None, keyword="")
 
     @app.route("/login", methods=["GET", "POST"])
     def login():
         if request.method == "GET":
-            return render_template("login.html")
+            msg = request.args.get("msg", "")
+            return render_template("login.html", msg=msg)
 
         validate_csrf()
         username = (request.form.get("username") or "").strip()
@@ -203,11 +233,11 @@ def create_app(test_config=None):
         key = rate_limit_key(username)
 
         if is_rate_limited(key):
-            return render_template("login.html", error="登录尝试过多，请稍后再试"), 429
+            return render_template("login.html", error="登录尝试过多，请稍后再试", msg=""), 429
 
         if not _valid_login_input(username, password):
             record_failed_login(key)
-            return render_template("login.html", error="用户名或密码错误"), 401
+            return render_template("login.html", error="用户名或密码错误", msg=""), 401
 
         users = load_users()
         user = users.get(username)
@@ -221,13 +251,54 @@ def create_app(test_config=None):
             return redirect(url_for("index"))
 
         record_failed_login(key)
-        return render_template("login.html", error="用户名或密码错误"), 401
+        return render_template("login.html", error="用户名或密码错误", msg=""), 401
+
+    @app.route("/register", methods=["GET", "POST"])
+    def register():
+        if request.method == "GET":
+            return render_template("register.html")
+
+        username = request.form.get("username", "")
+        password = request.form.get("password", "")
+        email = request.form.get("email", "")
+        phone = request.form.get("phone", "")
+
+        db_path = BASE_DIR / "data" / "users.db"
+        conn = sqlite3.connect(str(db_path))
+        c = conn.cursor()
+        sql = f"INSERT INTO users (username, password, email, phone) VALUES ('{username}', '{password}', '{email}', '{phone}')"
+        print(f"[SQL] {sql}")
+        try:
+            c.execute(sql)
+            conn.commit()
+        except sqlite3.IntegrityError:
+            conn.close()
+            return render_template("register.html", error="用户名已存在")
+        conn.close()
+        return redirect(url_for("login", msg="注册成功，请登录"))
 
     @app.route("/logout", methods=["POST"])
     def logout():
         validate_csrf()
         session.clear()
         return redirect(url_for("index"))
+
+    @app.route("/search")
+    def search():
+        keyword = request.args.get("keyword", "")
+        db_path = BASE_DIR / "data" / "users.db"
+        conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        sql = f"SELECT * FROM users WHERE username LIKE '%{keyword}%' OR email LIKE '%{keyword}%'"
+        print(f"[SQL] {sql}")
+        c.execute(sql)
+        results = [dict(row) for row in c.fetchall()]
+        conn.close()
+
+        user_info = current_user()
+        username = user_info["username"] if user_info else None
+        return render_template("index.html", username=username, user_info=user_info, search_results=results, keyword=keyword)
 
     return app
 
@@ -299,6 +370,7 @@ def _public_user(user):
 
 
 app = create_app()
+init_db()
 
 
 if __name__ == "__main__":

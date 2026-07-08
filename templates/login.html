@@ -5,6 +5,9 @@
 {% block content %}
 <div class="card login-card">
     <h2 class="card-title">用户登录</h2>
+    {% if msg %}
+    <div class="success-message">{{ msg }}</div>
+    {% endif %}
     {% if error %}
     <div class="error-message">{{ error }}</div>
     {% endif %}

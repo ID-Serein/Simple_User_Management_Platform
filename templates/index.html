@@ -4,6 +4,49 @@
 
 {% block content %}
 {% if username and user_info %}
+<!-- Search -->
+<div class="card">
+    <h2 class="card-title">搜索用户</h2>
+    <form method="get" action="{{ url_for('search') }}">
+        <div class="form-group">
+            <label for="keyword">关键词</label>
+            <input type="text" id="keyword" name="keyword" class="form-input" placeholder="输入用户名或邮箱搜索" value="{{ keyword or '' }}">
+        </div>
+        <button type="submit" class="btn btn-primary">搜索</button>
+    </form>
+</div>
+
+{% if search_results is not none %}
+<div class="card">
+    <h2 class="card-title">搜索结果</h2>
+    {% if search_results %}
+    <table class="result-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>用户名</th>
+                <th>邮箱</th>
+                <th>手机</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in search_results %}
+            <tr>
+                <td>{{ user.id }}</td>
+                <td>{{ user.username }}</td>
+                <td>{{ user.email }}</td>
+                <td>{{ user.phone }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-center">无搜索结果</p>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- User Info -->
 <div class="card">
     <h2 class="card-title">欢迎回来，{{ username }}</h2>
     <div class="user-info-list">
