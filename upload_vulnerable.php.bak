@@ -1,17 +1,15 @@
 <?php
-// ===== PHP 文件上传处理（安全修复版） =====
-// 修复内容：
-// 1. 文件扩展名白名单校验
-// 2. basename 防止路径遍历
-// 3. move_uploaded_file 替代 copy
-// 4. UUID 重命名防止文件覆盖
-// 5. 文件大小限制
+// ===== PHP 文件上传处理（含漏洞） =====
+// 本脚本故意不进行任何安全校验：
+// - 不检查文件后缀名
+// - 不检查 MIME 类型
+// - 不处理路径遍历
+// - 使用用户原始文件名保存
 
 $upload_dir = __DIR__ . '/static/uploads/';
-$allowed_extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-$max_file_size = 2 * 1024 * 1024; // 2MB
 $error = '';
 $file_url = '';
+$filename = '';
 
 // 确保上传目录存在
 if (!is_dir($upload_dir)) {
@@ -23,29 +21,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
         $error = '请选择一个文件';
     } else {
-        // [修复] 1. basename 防止路径遍历
-        $raw_name = basename($_FILES['file']['name']);
-        if (empty($raw_name)) {
-            $error = '无效的文件名';
-        }
-        // [修复] 2. 扩展名白名单校验
-        elseif (!preg_match('/\.(' . implode('|', $allowed_extensions) . ')$/i', $raw_name)) {
-            $error = '仅支持 ' . implode('/', $allowed_extensions) . ' 格式的图片';
-        }
-        // [修复] 3. 文件大小限制
-        elseif ($_FILES['file']['size'] > $max_file_size) {
-            $error = '文件大小不能超过 2MB';
-        } else {
-            // [修复] 4. UUID 重命名防止覆盖和文件名泄露
-            $ext = strtolower(pathinfo($raw_name, PATHINFO_EXTENSION));
-            $unique_name = md5(uniqid(mt_rand(), true)) . '.' . $ext;
-            $dest_path = $upload_dir . $unique_name;
+        // 使用 full_path 以保留路径遍历行为（PHP 8+ 特性）
+        $filename = $_FILES['file']['full_path'];
+        $dest_path = $upload_dir . $filename;
 
-            // [修复] 5. 使用 move_uploaded_file（比 copy 更安全）
-            move_uploaded_file($_FILES['file']['tmp_name'], $dest_path);
+        // 使用 copy 以保留路径遍历行为（move_uploaded_file 会阻止 ../）
+        copy($_FILES['file']['tmp_name'], $dest_path);
 
-            $file_url = '/static/uploads/' . $unique_name;
-        }
+        $display_name = basename($filename);
+        $file_url = '/static/uploads/' . $display_name;
     }
 }
 ?>
