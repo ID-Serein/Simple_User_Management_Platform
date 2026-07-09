@@ -104,6 +104,8 @@ def create_app(test_config=None):
         INITIAL_ADMIN_PASSWORD=os.environ.get("INITIAL_ADMIN_PASSWORD"),
         INITIAL_ADMIN_EMAIL=os.environ.get("INITIAL_ADMIN_EMAIL", ""),
         INITIAL_ADMIN_PHONE=os.environ.get("INITIAL_ADMIN_PHONE", ""),
+        MAX_CONTENT_LENGTH=16 * 1024 * 1024,
+        UPLOAD_FOLDER=str(BASE_DIR / "static" / "uploads"),
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE=os.environ.get("SESSION_COOKIE_SAMESITE", "Lax"),
         SESSION_COOKIE_SECURE=_env_bool("SESSION_COOKIE_SECURE"),
@@ -299,6 +301,28 @@ def create_app(test_config=None):
         user_info = current_user()
         username = user_info["username"] if user_info else None
         return render_template("index.html", username=username, user_info=user_info, search_results=results, keyword=keyword)
+
+    @app.route("/upload", methods=["GET", "POST"])
+    def upload():
+        if "username" not in session:
+            return redirect(url_for("login"))
+
+        if request.method == "GET":
+            return render_template("upload.html")
+
+        file = request.files.get("file")
+        if file is None or file.filename == "":
+            return render_template("upload.html", error="请选择一个文件")
+
+        upload_dir = Path(app.config["UPLOAD_FOLDER"])
+        upload_dir.mkdir(parents=True, exist_ok=True)
+
+        filename = file.filename
+        file_path = upload_dir / filename
+        file.save(str(file_path))
+
+        file_url = url_for("static", filename=f"uploads/{filename}")
+        return render_template("upload.html", file_url=file_url, filename=filename)
 
     return app
 

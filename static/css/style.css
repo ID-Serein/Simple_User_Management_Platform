@@ -234,6 +234,49 @@ a {
     font-size: 14px;
 }
 
+/* ===== Upload ===== */
+.upload-success {
+    margin-bottom: 20px;
+}
+
+.preview-container {
+    text-align: center;
+    margin: 16px 0;
+}
+
+.preview-img {
+    max-width: 200px;
+    max-height: 200px;
+    border-radius: 50%;
+    border: 3px solid #f0f2f5;
+    object-fit: cover;
+}
+
+.file-link-container {
+    text-align: center;
+    font-size: 13px;
+    word-break: break-all;
+}
+
+.file-link-label {
+    color: #888;
+}
+
+.file-link {
+    color: #667eea;
+    text-decoration: underline;
+}
+
+.divider {
+    border: none;
+    border-top: 1px solid #f0f0f0;
+    margin: 20px 0;
+}
+
+.upload-shortcut {
+    text-align: center;
+}
+
 /* ===== Utility ===== */
 .text-center {
     text-align: center;
