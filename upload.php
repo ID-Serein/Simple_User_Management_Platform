@@ -1,98 +1,23 @@
 <?php
-// ===== PHP 文件上传处理（安全修复版） =====
-// 修复内容：
-// 1. 文件扩展名白名单校验
-// 2. basename 防止路径遍历
-// 3. move_uploaded_file 替代 copy
-// 4. UUID 重命名防止文件覆盖
-// 5. 文件大小限制
-
-$upload_dir = __DIR__ . '/static/uploads/';
-$allowed_extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-$max_file_size = 2 * 1024 * 1024; // 2MB
-$error = '';
-$file_url = '';
-
-// 确保上传目录存在
-if (!is_dir($upload_dir)) {
-    mkdir($upload_dir, 0755, true);
-}
-
-// 处理文件上传 POST 请求
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
-        $error = '请选择一个文件';
-    } else {
-        // [修复] 1. basename 防止路径遍历
-        $raw_name = basename($_FILES['file']['name']);
-        if (empty($raw_name)) {
-            $error = '无效的文件名';
-        }
-        // [修复] 2. 扩展名白名单校验
-        elseif (!preg_match('/\.(' . implode('|', $allowed_extensions) . ')$/i', $raw_name)) {
-            $error = '仅支持 ' . implode('/', $allowed_extensions) . ' 格式的图片';
-        }
-        // [修复] 3. 文件大小限制
-        elseif ($_FILES['file']['size'] > $max_file_size) {
-            $error = '文件大小不能超过 2MB';
-        } else {
-            // [修复] 4. UUID 重命名防止覆盖和文件名泄露
-            $ext = strtolower(pathinfo($raw_name, PATHINFO_EXTENSION));
-            $unique_name = md5(uniqid(mt_rand(), true)) . '.' . $ext;
-            $dest_path = $upload_dir . $unique_name;
-
-            // [修复] 5. 使用 move_uploaded_file（比 copy 更安全）
-            move_uploaded_file($_FILES['file']['tmp_name'], $dest_path);
-
-            $file_url = '/static/uploads/' . $unique_name;
-        }
-    }
-}
+http_response_code(410);
+header('Content-Type: text/html; charset=UTF-8');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('Referrer-Policy: strict-origin-when-cross-origin');
 ?>
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>上传头像 - 用户管理系统</title>
+    <title>上传入口已迁移</title>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-brand">用户管理系统</div>
-        <div class="nav-menu">
-            <a href="/" class="nav-link">返回首页</a>
-        </div>
-    </nav>
     <main class="container">
         <div class="card">
-            <h2 class="card-title">上传头像</h2>
-
-            <?php if ($error): ?>
-            <div class="error-message"><?= htmlspecialchars($error) ?></div>
-            <?php endif; ?>
-
-            <?php if ($file_url): ?>
-            <div class="upload-success">
-                <p class="text-center">上传成功！</p>
-                <div class="preview-container">
-                    <img src="<?= htmlspecialchars($file_url) ?>" alt="头像预览" class="preview-img">
-                </div>
-                <div class="file-link-container">
-                    <span class="file-link-label">文件链接：</span>
-                    <a href="<?= htmlspecialchars($file_url) ?>" class="file-link" target="_blank"><?= htmlspecialchars($file_url) ?></a>
-                </div>
-            </div>
-            <hr class="divider">
-            <?php endif; ?>
-
-            <form method="post" action="upload.php" enctype="multipart/form-data">
-                <div class="form-group">
-                    <label for="file">选择头像文件</label>
-                    <input type="file" id="file" name="file" class="form-input" required>
-                </div>
-                <button type="submit" class="btn btn-primary btn-block">上传</button>
-            </form>
+            <h2 class="card-title">上传入口已迁移</h2>
+            <p class="text-center">PHP 上传入口已禁用。请登录 Flask 应用后使用 /upload 上传头像。</p>
         </div>
     </main>
 </body>

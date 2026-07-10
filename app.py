@@ -4,6 +4,7 @@ import os
 import secrets
 import sqlite3
 import time
+import uuid
 from datetime import timedelta
 from pathlib import Path
 
@@ -14,6 +15,9 @@ from werkzeug.security import check_password_hash, generate_password_hash
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_USER_STORE = BASE_DIR / "data" / "users.json"
 DUMMY_PASSWORD_HASH = generate_password_hash(secrets.token_urlsafe(32))
+ALLOWED_UPLOAD_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "webp"}
+ALLOWED_UPLOAD_MIME_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+UPLOAD_MAX_BYTES = 2 * 1024 * 1024
 
 
 def _load_local_env():
@@ -104,7 +108,8 @@ def create_app(test_config=None):
         INITIAL_ADMIN_PASSWORD=os.environ.get("INITIAL_ADMIN_PASSWORD"),
         INITIAL_ADMIN_EMAIL=os.environ.get("INITIAL_ADMIN_EMAIL", ""),
         INITIAL_ADMIN_PHONE=os.environ.get("INITIAL_ADMIN_PHONE", ""),
-        MAX_CONTENT_LENGTH=16 * 1024 * 1024,
+        MAX_CONTENT_LENGTH=UPLOAD_MAX_BYTES,
+        UPLOAD_MAX_BYTES=UPLOAD_MAX_BYTES,
         UPLOAD_FOLDER=str(BASE_DIR / "static" / "uploads"),
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE=os.environ.get("SESSION_COOKIE_SAMESITE", "Lax"),
@@ -310,16 +315,27 @@ def create_app(test_config=None):
         if request.method == "GET":
             return render_template("upload.html")
 
+        validate_csrf()
         file = request.files.get("file")
         if file is None or file.filename == "":
-            return render_template("upload.html", error="请选择一个文件")
+            return render_template("upload.html", error="请选择一个文件"), 400
 
         upload_dir = Path(app.config["UPLOAD_FOLDER"])
-        upload_dir.mkdir(parents=True, exist_ok=True)
+        upload_dir = _safe_upload_dir(upload_dir)
 
-        filename = file.filename
-        file_path = upload_dir / filename
-        file.save(str(file_path))
+        is_valid, error, image_ext, payload = _validate_uploaded_image(
+            file,
+            app.config["UPLOAD_MAX_BYTES"],
+        )
+        if not is_valid:
+            return render_template("upload.html", error=error), 400
+
+        filename = f"{uuid.uuid4().hex}.{image_ext}"
+        file_path = (upload_dir / filename).resolve()
+        if file_path.parent != upload_dir:
+            abort(400)
+
+        file_path.write_bytes(payload)
 
         file_url = url_for("static", filename=f"uploads/{filename}")
         return render_template("upload.html", file_url=file_url, filename=filename)
@@ -329,6 +345,57 @@ def create_app(test_config=None):
 
 def _valid_login_input(username, password):
     return 1 <= len(username) <= 64 and 1 <= len(password) <= 128
+
+
+def _safe_upload_dir(upload_dir):
+    base_upload_dir = (BASE_DIR / "static" / "uploads").resolve()
+    resolved_upload_dir = Path(upload_dir).resolve()
+
+    if resolved_upload_dir != base_upload_dir:
+        raise RuntimeError("UPLOAD_FOLDER must be the static/uploads directory")
+
+    resolved_upload_dir.mkdir(parents=True, exist_ok=True)
+    return resolved_upload_dir
+
+
+def _validate_uploaded_image(file_storage, max_bytes):
+    original_name = file_storage.filename or ""
+    suffix = Path(original_name).suffix.lower().lstrip(".")
+    if suffix not in ALLOWED_UPLOAD_EXTENSIONS:
+        return False, "仅支持 jpg、jpeg、png、gif、webp 图片", None, None
+
+    declared_mime = (file_storage.mimetype or "").lower()
+    if declared_mime not in ALLOWED_UPLOAD_MIME_TYPES:
+        return False, "文件 MIME 类型不合法", None, None
+
+    payload = file_storage.stream.read(max_bytes + 1)
+    file_storage.stream.seek(0)
+    if not payload:
+        return False, "文件内容为空", None, None
+    if len(payload) > max_bytes:
+        return False, "文件大小不能超过 2MB", None, None
+
+    detected_ext = _detect_image_extension(payload)
+    if detected_ext is None:
+        return False, "文件内容不是有效图片", None, None
+
+    normalized_suffix = "jpg" if suffix == "jpeg" else suffix
+    if normalized_suffix != detected_ext:
+        return False, "文件扩展名与图片内容不匹配", None, None
+
+    return True, "", detected_ext, payload
+
+
+def _detect_image_extension(payload):
+    if payload.startswith(b"\xff\xd8\xff"):
+        return "jpg"
+    if payload.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if payload.startswith((b"GIF87a", b"GIF89a")):
+        return "gif"
+    if len(payload) >= 12 and payload.startswith(b"RIFF") and payload[8:12] == b"WEBP":
+        return "webp"
+    return None
 
 
 def _initialize_user_store(config):

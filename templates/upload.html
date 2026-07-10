@@ -25,9 +25,10 @@
     {% endif %}
 
     <form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
             <label for="file">选择头像文件</label>
-            <input type="file" id="file" name="file" class="form-input" required>
+            <input type="file" id="file" name="file" class="form-input" accept=".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp" required>
         </div>
         <button type="submit" class="btn btn-primary btn-block">上传</button>
     </form>
