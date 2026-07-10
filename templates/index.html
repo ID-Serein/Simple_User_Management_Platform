@@ -80,9 +80,6 @@
             <span class="info-value">{{ user_info.balance }}</span>
         </div>
     </div>
-    <div class="mt-20 text-center">
-        <a href="{{ url_for('profile', user_id=user_id) }}" class="btn btn-primary">个人中心</a>
-    </div>
     <div class="mt-20">
         <form method="post" action="{{ url_for('logout') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
