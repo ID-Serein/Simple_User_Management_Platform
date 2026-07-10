@@ -368,19 +368,42 @@ def create_app(test_config=None):
 
     @app.route("/profile")
     def profile():
+        # 检查登录
+        current_username = session.get("username")
+        if not current_username:
+            return redirect(url_for("login"))
+
         user_id = request.args.get("user_id")
         if not user_id:
             return "缺少 user_id 参数", 400
 
-        user = _get_user_by_id(user_id)
-        if not user:
+        # 校验只能查看自己的资料
+        users = load_users()
+        usernames = sorted(users.keys())
+        try:
+            idx = int(user_id) - 1
+            if idx < 0 or idx >= len(usernames):
+                return "用户不存在", 404
+            request_username = usernames[idx]
+        except (ValueError, IndexError):
             return "用户不存在", 404
+
+        if request_username != current_username:
+            return "无权查看其他用户资料", 403
+
+        user = users[request_username]
+        user["id"] = idx + 1
 
         recharged = request.args.get("recharged", "")
         return render_template("profile.html", user=user, recharged=recharged)
 
     @app.route("/recharge", methods=["POST"])
     def recharge():
+        # 检查登录
+        current_username = session.get("username")
+        if not current_username:
+            return redirect(url_for("login"))
+
         user_id = request.form.get("user_id")
         amount = request.form.get("amount", "0")
 
@@ -394,10 +417,22 @@ def create_app(test_config=None):
         except (ValueError, IndexError):
             return "用户不存在", 404
 
+        # 校验只能给自己充值
+        if username != current_username:
+            return "无权操作其他用户账户", 403
+
         try:
             amount_val = float(amount)
         except ValueError:
             return "无效的金额", 400
+
+        # 校验金额为正数
+        if amount_val <= 0:
+            return "充值金额必须为正数", 400
+
+        # 单次充值上限
+        if amount_val > 100000:
+            return "单次充值金额不能超过 100000", 400
 
         users[username]["balance"] = users[username].get("balance", 0) + amount_val
         _save_users(app.config["USER_STORE_PATH"], users)
