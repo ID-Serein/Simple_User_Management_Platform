@@ -55,6 +55,17 @@
     </div>
 </div>
 
+<!-- Profile shortcut -->
+{% if user_id %}
+<div class="card upload-shortcut">
+    <h2 class="card-title">个人中心</h2>
+    <p class="text-center">查看资料、余额管理和充值</p>
+    <div class="text-center mt-20">
+        <a href="{{ url_for('profile', user_id=user_id) }}" class="btn btn-primary">个人中心</a>
+    </div>
+</div>
+{% endif %}
+
 <!-- User Info -->
 <div class="card">
     <h2 class="card-title">欢迎回来，{{ username }}</h2>

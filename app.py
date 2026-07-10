@@ -222,11 +222,6 @@ def create_app(test_config=None):
 
         return response
 
-    @app.route("/")
-    def index():
-        user_info = current_user()
-        username = user_info["username"] if user_info else None
-        return render_template("index.html", username=username, user_info=user_info, search_results=None, keyword="")
 
     @app.route("/login", methods=["GET", "POST"])
     def login():
@@ -339,6 +334,75 @@ def create_app(test_config=None):
 
         file_url = url_for("static", filename=f"uploads/{filename}")
         return render_template("upload.html", file_url=file_url, filename=filename)
+
+    def _get_user_by_id(user_id):
+        """根据数字 ID 从用户数据中查找用户（1-based 索引）"""
+        users = load_users()
+        usernames = sorted(users.keys())
+        try:
+            idx = int(user_id) - 1
+            if idx < 0 or idx >= len(usernames):
+                return None
+            username = usernames[idx]
+            user = users[username]
+            user["id"] = idx + 1
+            return user
+        except (ValueError, IndexError):
+            return None
+
+    def _get_user_id(username):
+        """获取用户名对应的数字 ID"""
+        users = load_users()
+        usernames = sorted(users.keys())
+        try:
+            return usernames.index(username) + 1
+        except ValueError:
+            return None
+
+    @app.route("/")
+    def index():
+        user_info = current_user()
+        username = user_info["username"] if user_info else None
+        user_id = _get_user_id(username) if username else None
+        return render_template("index.html", username=username, user_info=user_info, user_id=user_id)
+
+    @app.route("/profile")
+    def profile():
+        user_id = request.args.get("user_id")
+        if not user_id:
+            return "缺少 user_id 参数", 400
+
+        user = _get_user_by_id(user_id)
+        if not user:
+            return "用户不存在", 404
+
+        recharged = request.args.get("recharged", "")
+        return render_template("profile.html", user=user, recharged=recharged)
+
+    @app.route("/recharge", methods=["POST"])
+    def recharge():
+        user_id = request.form.get("user_id")
+        amount = request.form.get("amount", "0")
+
+        users = load_users()
+        usernames = sorted(users.keys())
+        try:
+            idx = int(user_id) - 1
+            if idx < 0 or idx >= len(usernames):
+                return "用户不存在", 404
+            username = usernames[idx]
+        except (ValueError, IndexError):
+            return "用户不存在", 404
+
+        try:
+            amount_val = float(amount)
+        except ValueError:
+            return "无效的金额", 400
+
+        users[username]["balance"] = users[username].get("balance", 0) + amount_val
+        _save_users(app.config["USER_STORE_PATH"], users)
+
+        return redirect(url_for("profile", user_id=user_id, recharged=amount))
 
     return app
 
