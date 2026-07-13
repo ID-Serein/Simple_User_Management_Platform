@@ -341,6 +341,10 @@ def create_app(test_config=None):
         if not name:
             return "缺少 name 参数", 400
 
+        # help 页面使用完整模板
+        if name == "help":
+            return render_template("help.html")
+
         # 直接拼接用户输入到路径（含路径遍历漏洞）
         page_path = os.path.join("pages", name)
         if os.path.isfile(page_path):
