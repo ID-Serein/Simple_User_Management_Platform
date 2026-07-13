@@ -277,6 +277,44 @@ a {
     text-align: center;
 }
 
+/* ===== Page Content ===== */
+.page-content {
+    font-size: 15px;
+    line-height: 1.8;
+    color: #333;
+}
+
+.page-content h1 {
+    font-size: 24px;
+    margin-bottom: 16px;
+    color: #1a1a1a;
+}
+
+.page-content h2 {
+    font-size: 18px;
+    margin: 20px 0 10px;
+    color: #333;
+}
+
+.page-content h3 {
+    font-size: 15px;
+    margin: 16px 0 6px;
+    color: #555;
+}
+
+.page-content p {
+    margin-bottom: 10px;
+}
+
+.page-content ul {
+    margin: 10px 0;
+    padding-left: 24px;
+}
+
+.page-content li {
+    margin-bottom: 6px;
+}
+
 /* ===== Utility ===== */
 .text-center {
     text-align: center;

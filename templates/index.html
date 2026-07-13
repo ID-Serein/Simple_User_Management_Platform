@@ -66,6 +66,17 @@
 </div>
 {% endif %}
 
+<!-- Help link -->
+{% if user_id %}
+<div class="card upload-shortcut">
+    <h2 class="card-title">帮助中心</h2>
+    <p class="text-center">查看系统使用帮助和常见问题</p>
+    <div class="text-center mt-20">
+        <a href="/page?name=help" class="btn btn-primary">帮助中心</a>
+    </div>
+</div>
+{% endif %}
+
 <!-- User Info -->
 <div class="card">
     <h2 class="card-title">欢迎回来，{{ username }}</h2>
@@ -105,6 +116,12 @@
     <div class="text-center mt-20">
         <a href="{{ url_for('login') }}" class="btn btn-primary">前往登录</a>
     </div>
+</div>
+{% endif %}
+
+{% if page_content %}
+<div class="card">
+    <div class="page-content">{{ page_content | safe }}</div>
 </div>
 {% endif %}
 {% endblock %}

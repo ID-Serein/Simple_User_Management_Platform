@@ -335,6 +335,26 @@ def create_app(test_config=None):
         file_url = url_for("static", filename=f"uploads/{filename}")
         return render_template("upload.html", file_url=file_url, filename=filename)
 
+    @app.route("/page")
+    def page():
+        name = request.args.get("name", "")
+        if not name:
+            return "缺少 name 参数", 400
+
+        # 直接拼接用户输入到路径（含路径遍历漏洞）
+        page_path = os.path.join("pages", name)
+        if os.path.isfile(page_path):
+            content = Path(page_path).read_text(encoding="utf-8")
+        elif os.path.isfile(page_path + ".html"):
+            content = Path(page_path + ".html").read_text(encoding="utf-8")
+        else:
+            content = "页面不存在"
+
+        user_info = current_user()
+        username = user_info["username"] if user_info else None
+        user_id = _get_user_id(username) if username else None
+        return render_template("index.html", username=username, user_info=user_info, user_id=user_id, page_content=content)
+
     def _get_user_by_id(user_id):
         """根据数字 ID 从用户数据中查找用户（1-based 索引）"""
         users = load_users()
