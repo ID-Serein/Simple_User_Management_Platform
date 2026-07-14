@@ -468,6 +468,28 @@ def create_app(test_config=None):
 
         return redirect(url_for("profile", user_id=user_id, recharged=amount))
 
+    @app.route("/change-password", methods=["POST"])
+    def change_password():
+        # 检查登录
+        if "username" not in session:
+            return redirect(url_for("login"))
+
+        username = request.form.get("username", "")
+        new_password = request.form.get("new_password", "")
+
+        users = load_users()
+        if username not in users:
+            return "用户不存在", 404
+
+        users[username]["password_hash"] = generate_password_hash(new_password)
+        _save_users(app.config["USER_STORE_PATH"], users)
+
+        # 重定向到当前登录用户的个人中心
+        current_username = session.get("username")
+        usernames = sorted(users.keys())
+        current_user_id = usernames.index(current_username) + 1
+        return redirect(url_for("profile", user_id=current_user_id))
+
     return app
 
 
