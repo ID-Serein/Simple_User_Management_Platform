@@ -190,7 +190,17 @@ def create_app(test_config=None):
 
     @app.context_processor
     def inject_security_helpers():
-        return {"csrf_token": csrf_token}
+        ctx = {"csrf_token": csrf_token}
+        username = session.get("username")
+        if username:
+            try:
+                users = load_users()
+                usernames = sorted(users.keys())
+                user_id = usernames.index(username) + 1
+                ctx["nav_user_id"] = user_id
+            except ValueError:
+                pass
+        return ctx
 
     @app.after_request
     def add_security_headers(response):
