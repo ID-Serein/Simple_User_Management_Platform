@@ -345,8 +345,13 @@ def create_app(test_config=None):
         if name == "help":
             return render_template("help.html")
 
-        # 直接拼接用户输入到路径（含路径遍历漏洞）
-        page_path = os.path.join("pages", name)
+        # [修复] 路径规范化，防止路径遍历
+        pages_dir = os.path.abspath("pages")
+        page_path = os.path.abspath(os.path.join("pages", name))
+
+        if not page_path.startswith(pages_dir):
+            return "页面不存在", 404
+
         if os.path.isfile(page_path):
             content = Path(page_path).read_text(encoding="utf-8")
         elif os.path.isfile(page_path + ".html"):

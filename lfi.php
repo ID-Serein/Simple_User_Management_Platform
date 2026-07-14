@@ -1,52 +1,35 @@
 <?php
-// ===== PHP 文件包含漏洞演示（支持伪协议） =====
-// 本脚本用于演示 PHP 伪协议利用：
-// - php://filter — 编码读取任意文件
-// - php://input — POST 体作为代码执行（需 allow_url_include=On）
-// - data:// — URI 内嵌代码执行
-// - 路径遍历 — 读取任意文件
+// ===== PHP 文件包含处理（修复版） =====
+// 修复内容：
+// - 仅支持 data:// 伪协议（用于漏洞演示）
+// - 移除 php://input / php://filter 支持
+// - 路径遍历防护（路径规范化 + startswith 校验）
 
 $file = isset($_GET['file']) ? $_GET['file'] : '';
 $content = '';
 $error = '';
 
 if ($file) {
-    // [漏洞] 直接使用用户输入作为文件包含路径
-    // 不校验路径、不过滤 ../、不限制协议
-    $using_protocol = (strpos($file, '://') !== false);
-    $is_rce_protocol = (strpos($file, 'php://input') === 0 || strpos($file, 'data://') === 0);
-
-    if ($using_protocol) {
-        // 伪协议处理（php://, data:// 等）
-        if (strpos($file, 'php://input') === 0) {
-            // php://input: 读取 POST 体并通过 eval 执行
-            $input_code = @file_get_contents('php://input');
-            if ($input_code) {
-                ob_start();
-                eval('?>' . $input_code);
-                $content = ob_get_clean();
-            }
-        } elseif (strpos($file, 'php://filter') === 0) {
-            // php://filter: 直接使用 file_get_contents 读取（CWD 为项目根目录）
+    if (strpos($file, 'data://') === 0) {
+        // data:// 伪协议：URI 内嵌代码执行（仅用于漏洞演示）
+        ob_start();
+        @include($file);
+        $content = ob_get_clean();
+        if (empty($content)) {
             $content = @file_get_contents($file);
-        } else {
-            // data:// 等其他协议: 使用 include
-            ob_start();
-            @include($file);
-            $content = ob_get_clean();
-            if (empty($content)) {
-                $content = @file_get_contents($file);
-            }
         }
     } else {
         // 普通文件路径
-        $base_path = __DIR__ . '/pages/';
-        $include_path = $base_path . $file;
+        $base_dir = realpath(__DIR__ . '/pages/');
+        $file_path = realpath($base_dir . '/' . $file);
 
-        if (file_exists($include_path)) {
-            $content = file_get_contents($include_path);
-        } elseif (file_exists($include_path . '.html')) {
-            $content = file_get_contents($include_path . '.html');
+        // [修复] 路径规范化校验，防止 ../ 遍历
+        if ($file_path === false || strpos($file_path, $base_dir) !== 0) {
+            $error = '页面不存在';
+        } elseif (file_exists($file_path)) {
+            $content = file_get_contents($file_path);
+        } elseif (file_exists($file_path . '.html')) {
+            $content = file_get_contents($file_path . '.html');
         } else {
             $error = '页面不存在';
         }
@@ -78,7 +61,7 @@ if ($file) {
             <form method="get" action="lfi.php">
                 <div class="form-group">
                     <label for="file">文件路径 / 伪协议</label>
-                    <input type="text" id="file" name="file" class="form-input" placeholder="例如: ../app.py 或 php://filter/..." value="<?= htmlspecialchars($file) ?>">
+                    <input type="text" id="file" name="file" class="form-input" placeholder="例如: help 或 data://text/plain,..." value="<?= htmlspecialchars($file) ?>">
                 </div>
                 <button type="submit" class="btn btn-primary btn-block">读取</button>
             </form>
@@ -109,11 +92,7 @@ if ($file) {
                     <tr><th>类型</th><th>URL</th><th>说明</th></tr>
                 </thead>
                 <tbody>
-                    <tr><td>路径遍历</td><td><code>?file=../app.py</code></td><td>读取 Flask 应用源码</td></tr>
-                    <tr><td>路径遍历</td><td><code>?file=../../../etc/passwd</code></td><td>读取系统密码文件</td></tr>
-                    <tr><td>Filter编码</td><td><code>?file=php://filter/convert.base64-encode/resource=../app.py</code></td><td>Base64 编码读取源码</td></tr>
-                    <tr><td>Filter编码</td><td><code>?file=php://filter/read=convert.base64-encode/resource=../../../etc/passwd</code></td><td>编码读取系统文件</td></tr>
-                    <tr><td>Input RCE</td><td><code>POST: ?file=php://input</code></td><td>POST 体作为代码执行</td></tr>
+                    <tr><td>路径遍历</td><td><code>?file=help</code></td><td>读取 pages/ 目录下的页面</td></tr>
                     <tr><td>Data RCE</td><td><code>?file=data://text/plain,<?php echo 1;?></code></td><td>URI 内嵌代码执行</td></tr>
                 </tbody>
             </table>
