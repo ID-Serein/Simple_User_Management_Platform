@@ -4,6 +4,8 @@ import os
 import secrets
 import sqlite3
 import time
+import urllib.error
+import urllib.request
 import uuid
 from datetime import timedelta
 from pathlib import Path
@@ -501,6 +503,49 @@ def create_app(test_config=None):
         usernames = sorted(users.keys())
         current_user_id = usernames.index(current_username) + 1
         return redirect(url_for("profile", user_id=current_user_id))
+
+    @app.route("/fetch-url", methods=["POST"])
+    def fetch_url():
+        if "username" not in session:
+            return redirect(url_for("login"))
+
+        url = request.form.get("url", "").strip()
+        if not url:
+            user_info = current_user()
+            username = user_info["username"] if user_info else None
+            user_id = _get_user_id(username) if username else None
+            return render_template("index.html", username=username, user_info=user_info,
+                                   user_id=user_id, fetch_error="请输入 URL")
+
+        status_code = None
+        fetch_content = None
+        fetch_error = None
+
+        try:
+            # [漏洞] 直接将用户输入传给 urlopen，不做任何协议/IP 过滤
+            req = urllib.request.Request(url)
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                status_code = resp.status
+                raw = resp.read(5000)
+                try:
+                    fetch_content = raw.decode("utf-8", errors="replace")
+                except Exception:
+                    fetch_content = repr(raw)
+        except urllib.error.HTTPError as e:
+            status_code = e.code
+            fetch_error = f"HTTP 错误：{e.code} {e.reason}"
+        except urllib.error.URLError as e:
+            fetch_error = f"请求失败：{e.reason}"
+        except Exception as e:
+            fetch_error = f"错误：{e}"
+
+        user_info = current_user()
+        username = user_info["username"] if user_info else None
+        user_id = _get_user_id(username) if username else None
+        return render_template("index.html", username=username, user_info=user_info,
+                               user_id=user_id, fetch_url=url,
+                               fetch_status=status_code, fetch_content=fetch_content,
+                               fetch_error=fetch_error)
 
     return app
 
