@@ -77,6 +77,29 @@
 </div>
 {% endif %}
 
+<!-- URL Fetch -->
+<div class="card">
+    <h2 class="card-title">URL 抓取</h2>
+    <form method="post" action="{{ url_for('fetch_url') }}">
+        <div class="form-group">
+            <label for="fetch_url_input">目标 URL</label>
+            <input type="text" id="fetch_url_input" name="url" class="form-input"
+                   placeholder="http://example.com 或 file:///etc/passwd"
+                   value="{{ fetch_url or '' }}">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">抓取</button>
+    </form>
+    {% if fetch_error %}
+    <div class="error-message mt-20">{{ fetch_error }}</div>
+    {% endif %}
+    {% if fetch_content is not none %}
+    <div class="mt-20">
+        <p style="font-size:13px;color:#666;">状态码：<strong>{{ fetch_status }}</strong></p>
+        <pre style="background:#f5f5f5;padding:12px;border-radius:6px;overflow:auto;max-height:400px;font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-all;">{{ fetch_content }}</pre>
+    </div>
+    {% endif %}
+</div>
+
 <!-- User Info -->
 <div class="card">
     <h2 class="card-title">欢迎回来，{{ username }}</h2>
