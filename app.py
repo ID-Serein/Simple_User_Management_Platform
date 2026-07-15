@@ -1,11 +1,14 @@
 import hmac
+import ipaddress
 import json
 import os
 import secrets
+import socket
 import sqlite3
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlparse
 import uuid
 from datetime import timedelta
 from pathlib import Path
@@ -517,14 +520,59 @@ def create_app(test_config=None):
             return render_template("index.html", username=username, user_info=user_info,
                                    user_id=user_id, fetch_error="请输入 URL")
 
+        # [修复①] 协议白名单，仅允许 http / https
+        _ALLOWED_SCHEMES = {"http", "https"}
+
+        # [修复②] 内网 / 保留地址黑名单
+        _PRIVATE_NETWORKS = [
+            ipaddress.ip_network("127.0.0.0/8"),
+            ipaddress.ip_network("10.0.0.0/8"),
+            ipaddress.ip_network("172.16.0.0/12"),
+            ipaddress.ip_network("192.168.0.0/16"),
+            ipaddress.ip_network("169.254.0.0/16"),
+            ipaddress.ip_network("100.64.0.0/10"),
+            ipaddress.ip_network("::1/128"),
+            ipaddress.ip_network("fc00::/7"),
+        ]
+
+        def _is_private(hostname):
+            try:
+                ip = ipaddress.ip_address(socket.gethostbyname(hostname))
+                return any(ip in net for net in _PRIVATE_NETWORKS)
+            except Exception:
+                return True  # 解析失败一律拒绝
+
+        parsed = urlparse(url)
+
+        if parsed.scheme not in _ALLOWED_SCHEMES:
+            fetch_error = f"不支持的协议：{parsed.scheme or '(空)'}，仅允许 http / https"
+            user_info = current_user()
+            username = user_info["username"] if user_info else None
+            user_id = _get_user_id(username) if username else None
+            return render_template("index.html", username=username, user_info=user_info,
+                                   user_id=user_id, fetch_url=url, fetch_error=fetch_error)
+
+        if not parsed.hostname or _is_private(parsed.hostname):
+            fetch_error = "不允许访问内网 / 保留地址"
+            user_info = current_user()
+            username = user_info["username"] if user_info else None
+            user_id = _get_user_id(username) if username else None
+            return render_template("index.html", username=username, user_info=user_info,
+                                   user_id=user_id, fetch_url=url, fetch_error=fetch_error)
+
+        # [修复③] 禁止跟随重定向，防止 302 跳转绕过 IP 检查
+        class _NoRedirect(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self, req, fp, code, msg, headers, newurl):
+                raise urllib.error.URLError(f"拒绝重定向到 {newurl}")
+
         status_code = None
         fetch_content = None
         fetch_error = None
 
         try:
-            # [漏洞] 直接将用户输入传给 urlopen，不做任何协议/IP 过滤
+            opener = urllib.request.build_opener(_NoRedirect)
             req = urllib.request.Request(url)
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with opener.open(req, timeout=10) as resp:
                 status_code = resp.status
                 raw = resp.read(5000)
                 try:
