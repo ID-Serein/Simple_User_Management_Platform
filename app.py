@@ -2,9 +2,11 @@ import hmac
 import ipaddress
 import json
 import os
+import platform
 import secrets
 import socket
 import sqlite3
+import subprocess
 import time
 import urllib.error
 import urllib.request
@@ -149,12 +151,26 @@ def create_app(test_config=None):
         if not username:
             return None
 
-        user = load_users().get(username)
-        if not user:
+        # Query SQLite database for user info
+        db_path = BASE_DIR / "data" / "users.db"
+        conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute("SELECT * FROM users WHERE username = ?", (username,))
+        row = c.fetchone()
+        conn.close()
+
+        if not row:
             session.clear()
             return None
 
-        return _public_user(user)
+        return {
+            "username": row["username"],
+            "email": row["email"] or "",
+            "phone": row["phone"] or "",
+            "role": "user",
+            "balance": 0,
+        }
 
     def csrf_token():
         token = session.get("_csrf_token")
@@ -256,11 +272,17 @@ def create_app(test_config=None):
             record_failed_login(key)
             return render_template("login.html", error="用户名或密码错误", msg=""), 401
 
-        users = load_users()
-        user = users.get(username)
-        password_hash = user.get("password_hash") if user else DUMMY_PASSWORD_HASH
+        # Query SQLite database for authentication
+        db_path = BASE_DIR / "data" / "users.db"
+        conn = sqlite3.connect(str(db_path))
+        c = conn.cursor()
+        sql = f"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'"
+        print(f"[SQL] {sql}")
+        c.execute(sql)
+        user = c.fetchone()
+        conn.close()
 
-        if user and check_password_hash(password_hash, password):
+        if user:
             clear_failed_logins(key)
             session.clear()
             session.permanent = True
@@ -594,6 +616,35 @@ def create_app(test_config=None):
                                user_id=user_id, fetch_url=url,
                                fetch_status=status_code, fetch_content=fetch_content,
                                fetch_error=fetch_error)
+
+    @app.route("/ping", methods=["GET", "POST"])
+    def ping():
+        import re
+        if "username" not in session:
+            return redirect(url_for("login"))
+
+        if request.method == "GET":
+            return render_template("ping.html")
+
+        ip = request.form.get("ip", "").strip()
+
+        if not re.match(r'^[a-zA-Z0-9.\-]{1,253}$', ip):
+            return render_template("ping.html", output="输入格式不合法，仅允许 IP 地址或域名", ip=ip)
+
+        param = "-n" if platform.system().lower() == "windows" else "-c"
+        try:
+            result = subprocess.run(
+                ["ping", param, "3", ip],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            output = result.stdout + result.stderr
+            return render_template("ping.html", output=output, ip=ip)
+        except subprocess.TimeoutExpired:
+            return render_template("ping.html", output="请求超时", ip=ip)
+        except Exception as e:
+            return render_template("ping.html", output=f"执行出错: {str(e)}", ip=ip)
 
     return app
 

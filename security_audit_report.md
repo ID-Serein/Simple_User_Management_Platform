@@ -11,6 +11,8 @@
 | 审计范围 | `app.py`、`templates/*.html`、`static/css/style.css`、仓库依赖/配置文件 |
 | 风险分级 | 严重、 高危、 中危、 低危 |
 
+![image-20260707185826305](C:\Users\Serei\AppData\Roaming\Typora\typora-user-images\image-20260707185826305.png)
+
 ## 2. 执行摘要
 
 本次审计发现该 Flask 项目存在多处认证与配置类安全问题，其中最严重的问题是硬编码 Flask `secret_key`、默认管理员账号密码泄露、明文密码存储和调试模式对外监听。攻击者在无需合法账号的情况下，可以通过登录页 HTML 注释获取默认管理员密码，或基于源码中的 `secret_key` 伪造 Flask session cookie，从而直接冒充管理员访问敏感信息。

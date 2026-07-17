@@ -100,6 +100,15 @@
     {% endif %}
 </div>
 
+<!-- Ping shortcut -->
+<div class="card upload-shortcut">
+    <h2 class="card-title">网络诊断</h2>
+    <p class="text-center">Ping 测试网络连接状态</p>
+    <div class="text-center mt-20">
+        <a href="{{ url_for('ping') }}" class="btn btn-primary">Ping测试</a>
+    </div>
+</div>
+
 <!-- User Info -->
 <div class="card">
     <h2 class="card-title">欢迎回来，{{ username }}</h2>

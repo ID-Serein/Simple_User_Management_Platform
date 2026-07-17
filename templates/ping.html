@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Ping 测试 - 用户管理系统{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 class="card-title">Ping 网络诊断</h2>
+    <form method="post" action="{{ url_for('ping') }}">
+        <div class="form-group">
+            <label for="ip">目标 IP 地址或域名</label>
+            <input type="text" id="ip" name="ip" class="form-input" placeholder="例如: 127.0.0.1 或 example.com" value="{{ ip or '' }}" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Ping</button>
+    </form>
+</div>
+
+{% if output %}
+<div class="card">
+    <h2 class="card-title">执行结果</h2>
+    <div class="console-output">
+        <pre>{{ output }}</pre>
+    </div>
+</div>
+{% endif %}
+
+<style>
+.console-output {
+    background-color: #000;
+    color: #0f0;
+    padding: 15px;
+    border-radius: 4px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+    overflow-x: auto;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.console-output pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.mt-20 {
+    margin-top: 20px;
+}
+</style>
+{% endblock %}

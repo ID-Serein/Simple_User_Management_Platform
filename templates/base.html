@@ -14,6 +14,7 @@
             <span class="nav-welcome">欢迎，{{ session.get('username') }}</span>
             <a href="{{ url_for('upload') }}" class="nav-link">上传头像</a>
             <a href="{% if nav_user_id %}{{ url_for('profile', user_id=nav_user_id) }}{% else %}{{ url_for('index') }}{% endif %}" class="nav-link">个人中心</a>
+            <a href="{{ url_for('ping') }}" class="nav-link">Ping测试</a>
             <form method="post" action="{{ url_for('logout') }}" class="nav-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="nav-link nav-button">退出</button>
