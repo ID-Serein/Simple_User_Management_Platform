@@ -3,6 +3,7 @@ import ipaddress
 import json
 import os
 import platform
+import re
 import secrets
 import socket
 import sqlite3
@@ -74,13 +75,6 @@ def init_db():
     conn.commit()
     conn.close()
     print("[init_db] Database initialized with tables and default users.")
-
-
-def _env_bool(name, default=False):
-    value = os.environ.get(name)
-    if value is None:
-        return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _env_int(name, default):
@@ -272,17 +266,15 @@ def create_app(test_config=None):
             record_failed_login(key)
             return render_template("login.html", error="用户名或密码错误", msg=""), 401
 
-        # Query SQLite database for authentication
+        # Query SQLite database for authentication (parameterized query)
         db_path = BASE_DIR / "data" / "users.db"
         conn = sqlite3.connect(str(db_path))
         c = conn.cursor()
-        sql = f"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'"
-        print(f"[SQL] {sql}")
-        c.execute(sql)
-        user = c.fetchone()
+        c.execute("SELECT * FROM users WHERE username = ?", (username,))
+        row = c.fetchone()
         conn.close()
 
-        if user:
+        if row and row[2] == password:
             clear_failed_logins(key)
             session.clear()
             session.permanent = True
@@ -305,10 +297,11 @@ def create_app(test_config=None):
         db_path = BASE_DIR / "data" / "users.db"
         conn = sqlite3.connect(str(db_path))
         c = conn.cursor()
-        sql = f"INSERT INTO users (username, password, email, phone) VALUES ('{username}', '{password}', '{email}', '{phone}')"
-        print(f"[SQL] {sql}")
         try:
-            c.execute(sql)
+            c.execute(
+                "INSERT INTO users (username, password, email, phone) VALUES (?, ?, ?, ?)",
+                (username, password, email, phone)
+            )
             conn.commit()
         except sqlite3.IntegrityError:
             conn.close()
@@ -329,9 +322,10 @@ def create_app(test_config=None):
         conn = sqlite3.connect(str(db_path))
         conn.row_factory = sqlite3.Row
         c = conn.cursor()
-        sql = f"SELECT * FROM users WHERE username LIKE '%{keyword}%' OR email LIKE '%{keyword}%'"
-        print(f"[SQL] {sql}")
-        c.execute(sql)
+        c.execute(
+            "SELECT * FROM users WHERE username LIKE ? OR email LIKE ?",
+            (f"%{keyword}%", f"%{keyword}%")
+        )
         results = [dict(row) for row in c.fetchall()]
         conn.close()
 
@@ -645,6 +639,34 @@ def create_app(test_config=None):
             return render_template("ping.html", output="请求超时", ip=ip)
         except Exception as e:
             return render_template("ping.html", output=f"执行出错: {str(e)}", ip=ip)
+
+    @app.route("/xml-import", methods=["GET", "POST"])
+    def xml_import():
+        if "username" not in session:
+            return redirect(url_for("login"))
+
+        if request.method == "GET":
+            return render_template("xml_import.html")
+
+        xml_data = request.form.get("xml_data", "")
+
+        # 使用 defusedxml 安全解析，禁止外部实体和 DTD
+        try:
+            import defusedxml.ElementTree as ET
+        except ImportError:
+            import xml.etree.ElementTree as ET
+
+        try:
+            root = ET.fromstring(xml_data)
+            users = []
+            for user in root.iter("user"):
+                name = user.findtext("name", default="")
+                email = user.findtext("email", default="")
+                users.append({"name": name, "email": email})
+            result = json.dumps(users, ensure_ascii=False, indent=2)
+            return render_template("xml_import.html", result=result, xml_data=request.form.get("xml_data", ""))
+        except Exception as e:
+            return render_template("xml_import.html", error="XML 解析失败，请检查格式", xml_data=request.form.get("xml_data", ""))
 
     return app
 

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}XML 数据导入 - 用户管理系统{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 class="card-title">XML 数据导入</h2>
+    <form method="post" action="{{ url_for('xml_import') }}">
+        <div class="form-group">
+            <label for="xml_data">XML 数据</label>
+            <textarea id="xml_data" name="xml_data" class="form-input" rows="12"
+                placeholder="请输入 XML 数据，例如：
+&lt;users&gt;
+  &lt;user&gt;
+    &lt;name&gt;Alice&lt;/name&gt;
+    &lt;email&gt;alice@example.com&lt;/email&gt;
+  &lt;/user&gt;
+&lt;/users&gt;">{{ xml_data or '' }}</textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">导入</button>
+    </form>
+</div>
+
+{% if error %}
+<div class="card">
+    <h2 class="card-title">错误</h2>
+    <div class="error-message">{{ error }}</div>
+</div>
+{% endif %}
+
+{% if result %}
+<div class="card">
+    <h2 class="card-title">解析结果</h2>
+    <pre class="result-pre">{{ result }}</pre>
+</div>
+{% endif %}
+
+<style>
+textarea.form-input {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 13px;
+    resize: vertical;
+}
+.result-pre {
+    background: #f5f5f5;
+    padding: 15px;
+    border-radius: 4px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 13px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+</style>
+{% endblock %}
